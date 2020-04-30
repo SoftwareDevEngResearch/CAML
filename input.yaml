@@ -1,0 +1,23 @@
+---
+- case_study:
+    spectra: True
+      - path_to_spectra_data: /spectra/
+    cleaning:
+      - nan: remove feature
+    dim_reduction:
+      - PCA: True
+
+    sklearn:
+      Tree_based:
+        - Random_Forest: False
+        - ExtraTrees: False
+        - DecisionTree: True
+
+    TPOT: True
+      - light: False
+      - random_seed: 42
+      - min_time: 10
+
+    feature_importance: False
+
+    
