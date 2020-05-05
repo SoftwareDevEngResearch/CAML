@@ -29,8 +29,11 @@ if __name__ == '__main__':
     print(input)
 
 #=============================================================
-    # read input file, or folder?
+    # read input file
     # make folder for this case study with unique #
+    
+    # overall data cleaning
+    # data visualization of target data
 
     # possibly divide nodes?
     # for each request/case:
@@ -39,6 +42,7 @@ if __name__ == '__main__':
     # - data visualize
     # - split into train, (optional- validate), and test
     # - train model or TPOT search
+    # - save each trained model as pkl file with associated metadata about input transformations
     # - plot train and test results
     # - output results summary file
 
