@@ -1,0 +1,36 @@
+---
+data:
+    data_path: ../F2FT/spectra_predictions/df_cn_spectra_pure_binary.csv
+    target_col_name: cn_coalesced
+    index_col_name: name
+    plot:
+      - 3D spectra
+      - train distribution
+      - test distribution
+      - overall distribution
+      - split distribution
+
+cleaning:
+    normalize: overall min max 
+
+
+validation:
+    holdout_fraction: 0.2
+    stratified: False
+    Kfold: 
+      nsplits: 5
+      stratified: False
+    metric: MAE
+    random_seed: 42
+    
+
+feature_transformations:
+
+    - dim_reduction:
+        PCA:
+          number: all      
+
+models:
+  - dummy_average
+  - RandomForest
+  - TPOT
