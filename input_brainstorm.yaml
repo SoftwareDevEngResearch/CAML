@@ -26,6 +26,12 @@ data:
 
     
 cleaning:
+
+    pre_split_cleaning:
+      - nan: interpolate # or remove feature or remove example with thresholds
+    post_split_cleaning:
+      - normalize: overall min max 
+
     outlier_removal: False
         - threshold: #fraction of standard deviation to keep
     PCA: False

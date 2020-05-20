@@ -1,3 +1,5 @@
+""" This module is meant for data cleaning """
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -5,8 +7,6 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
-
-""" This module is meant for data cleaning """
 
 def normalize_overall_min_max(df_train, df_test, target):
     ''' This function takes the train and test dataframes and 

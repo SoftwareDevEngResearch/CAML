@@ -1,3 +1,5 @@
+" This module tests the clean.py module"
+
 import caml
 import clean
 

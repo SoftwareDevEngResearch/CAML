@@ -1,3 +1,5 @@
+""" This module is meant for control sequence """
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,7 +22,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 
-""" This module is meant for control sequence """
+from mpl_toolkits.mplot3d import Axes3D
 
 
 if __name__ == '__main__':
@@ -39,16 +41,20 @@ if __name__ == '__main__':
     # define the name of the directory to be created
     path = os.getcwd() + "/request_" + str(id_num)
     
+    # make directory
     try:
         os.mkdir(path)
     except OSError:
         print("Creation of the directory %s failed" % path)
-        
+    
+    # put copy of input request file into output folder    
     shutil.copy(input_file, path) 
      
+    # load input file with yaml
     with open(str(input_file), 'r') as file:
         input_ = yaml.load(file, Loader=yaml.FullLoader)
     
+    # dictionaries for each phase of ML process
     data = input_["data"]
     cleaning = input_["cleaning"]
     validation = input_["validation"]
@@ -58,25 +64,32 @@ if __name__ == '__main__':
     target = data["target_col_name"]
     seed = validation["random_seed"]
     
+    output_comments = [] # error messages / modifications to output to file later, list of strings
+    
     # dataframe with ID, target, features 
     df = pd.read_csv(data["data_path"], header = 0, dtype=object, index_col=data["index_col_name"])
     
-    # split by validation request, use random seed
-    if validation["stratified"] == True:
-        stratify = df[str(target)].copy()
-        stratified = True
-    else:
-        stratified = False
+##############################################
+    # pre-split cleaning
+    
+    # handling nans, removing outliers before splitting into train, test, val
+    
+#################################################
+    # split according to validation request, use random seed
         
     # split into train, test, try stratified
-    if stratified == True:
+    if validation["stratified"] == True:
         try:
+            stratified = True   
             df_train, df_test = train_test_split(df, 
                                                     test_size=validation["holdout_fraction"], 
-                                                    random_state=validation["random_seed"],
-                                                    stratify=stratify)
+                                                    random_state=seed,
+                                                    stratify=df[str(target)].copy())
         except:
-            print("Could not stratify train/test split because least populated class cannot have less than 2 members")
+            stratified_error = "Could not stratify train/test split because least populated class has too few members. Proceeding without stratifying." 
+            output_comments.append(stratified_error)
+            print(stratified_error)
+            
             df_train, df_test = train_test_split(df, 
                                                     test_size=validation["holdout_fraction"], 
                                                     random_state=seed
@@ -86,8 +99,44 @@ if __name__ == '__main__':
                                                 test_size=validation["holdout_fraction"], 
                                                 random_state=seed
                                                 )
-
+        
+    X = df.drop(str(target), axis=1).values.astype(np.float)
+    y = df[str(target)].copy().values.astype(np.float)
+    
+    X_train = df_train.drop(str(target), axis=1).values.astype(np.float)
+    y_train = df_train[str(target)].copy().values.astype(np.float)
+    
+    X_test = df_test.drop(str(target), axis=1).values.astype(np.float)
+    y_test = df_test[str(target)].copy().values.astype(np.float)
+    
+    
+###########################################
+    # K fold splitting
+        
+    if "Kfold" in validation:
+        
+        try:
+            K = validation["Kfold"]["nsplits"]
+        except ValueError:
+            print("nsplits for K-fold validation not given")
+        
+        if validation["Kfold"]["stratified"] == True: ### Fix for regression! use np.digitize for binning
+            try:
+                kf = StratifiedKFold(n_splits = K, shuffle=True, random_state=seed)
+            except:
+                kfold_error = "Could not stratify for K-fold splitting because least populated class has too few members. Proceeding without stratifying K-folds." 
+                output_comments.append(kfold_error)
+                print(kfold_error)
+                
+                kf = KFold(n_splits = K, shuffle=True, random_state=seed)
+                
+        elif validation["Kfold"]["stratified"] == False:
+            kf = KFold(n_splits = K, shuffle=True, random_state=seed)
+            
+        
+#########################################
     # plot requested distributions
+    
     if 'overall distribution' in data["plot"]:
         
         target_train = df_train[str(target)].values.astype(np.float)
@@ -96,7 +145,7 @@ if __name__ == '__main__':
         labels = ['train', 'test']
         
         plt.hist([target_train, target_test], 
-                 bins = 10, label=labels, stacked=True) # add auto bin number
+                 label=labels, stacked=True) # add auto bin number
         
         plt.ylabel('frequency')
         plt.xlabel(f"{target}")
@@ -107,77 +156,139 @@ if __name__ == '__main__':
     if 'train distribution' in data["plot"]:
         
         target_train = df_train[str(target)].values.astype(np.float)
-        plt.hist([target_train], 
-                 bins = 10, label=labels, stacked=True) # add auto bin number
+        plt.hist([target_train]) 
         
         plt.ylabel('frequency')
         plt.xlabel(f"{target}")
         plt.savefig(f"{path}/train_dist.png")
         plt.clf()
+        
+    if 'test distribution' in data["plot"]:
+        
+        target_test = df_test[str(target)].values.astype(np.float)
+        plt.hist([target_test]) # bins = 10,
+        
+        plt.ylabel('frequency')
+        plt.xlabel(f"{target}")
+        plt.savefig(f"{path}/test_dist.png")
+        plt.clf()
+        
+    if "split distribution" in data["plot"]:
+        
+        if "Kfold" not in validation:
+            plot_error = "Cannot plot split distribution if not using K-fold CV in validation"
+            output_comments.append(plot_error)
+            print(plot_error)
+            
+        else:
+            
+            folds = []
+            try: # stratified kfold .split() takes X, y
+                for train_index, test_index in kf.split(X_train, y_train):
+                    y_test_ = y_train[test_index]
+                    folds.append(y_test_)
+            except: # kfold .split() takes only X
+                for train_index, test_index in kf.split(X_train):
+                    y_test_ = y_train[test_index]
+                    folds.append(y_test_)
+                    
+            labels = [f"split {i+1}" for i in range(len(folds))]
+            plt.hist(folds,
+                     label=labels,
+                     stacked = True)
+            plt.ylabel('frequency')
+            plt.xlabel(f"{target}")
+            plt.legend(loc='upper right')
+            plt.savefig(f"{path}/split_dist.png")
+            plt.clf()
+                        
+       
+    # plot 3D spectra
+    if "3D spectra_" in data["plot"]:
+        
+        # To add: sort by target value, color gradient for target value or make target = y_
+        # save higher quality image, fix fontsize / use tight layout, make interactive/moving
+        # add train, test, split options to plot
+        # add fuel names maybe? or remove numbers from y axis
+        
+        fig = plt.figure()    
+        ax = fig.add_subplot(111, projection='3d')
+        
+        features = list(df.columns)
+        features.remove(target)
+        features = np.asarray(features)
+        
+        x_ = features.copy().astype(float)
+        y_ = np.arange(len(df)).astype(float)
+        
+        X_,Y_ = np.meshgrid(x_,y_)
+        Z = X.copy().astype(float)
+            
+        ax.plot_surface(X_, Y_, Z, rstride=1, cstride=1000, shade=True, lw=.5) 
+         
+#        ax.set_zlim(0, 5)
+#        ax.set_xlim(-51, 51)
+        ax.set_zlabel("Intensity")
+        ax.set_xlabel("Wavenumber")
+        ax.set_ylabel("Fuel")
+#        ax.view_init(20,-120)
+        plt.savefig(f"{path}/3D_spectra.png")
+        
+        
+    # plot heatmap of correlated features- spearman and pearson correlation coefficients
 
-    # k folds for train set:
-    K = validation["Kfold"]["nsplits"]
-    y_train = df_train[str(target)].copy().values
-    X_train = df_train.drop(str(target), axis=1).values
-    
-    kf = KFold(n_splits = K, shuffle=True, random_state=seed)
+##############################################
+    # post-split cleaning
 
-    # clean, normalize train
-    if cleaning['normalize'] == "overall min max":        
+    if cleaning["post_split_cleaning"]['normalize'] == "overall min max":        
         df_train, df_test, scale = clean.normalize_overall_min_max(df_train, df_test, target)
        
-    elif cleaning['normalize'] == "min max":        
+    elif cleaning["post_split_cleaning"]['normalize'] == "min max":        
         df_train, df_test, scale = clean.normalize_min_max(df_train, df_test, target, MinMaxScaler())
         
-    elif cleaning['normalize'] == "standard scaler":        
+    elif cleaning["post_split_cleaning"]['normalize'] == "standard scaler":        
         df_train, df_test, scale = clean.normalize_minmax_scaler(df_train, df_test, target, StandardScaler())
-        
-#    if stratified == True:
-#        kf = StratifiedKFold(n_splits=K, shuffle=True, random_state=seed)
-#        for train_index, test_index in kf.split(X, y):
-#            print("TRAIN:", train_index, "TEST:", test_index)
-#            X_train, X_test = X[train_index], X[test_index]
-#            y_train, y_test = y[train_index], y[test_index]
-#    else:
 
+##############################################
     # do all feature transforms in list, save in list of dataframes
+    
     df_trains_transformed = []
     df_tests_transformed = []
     for i, transformation in enumerate(feature_transformations):
         
-        # do normalizing, then dim reduction
-        if "dim_reduction" in transformation:
-            if "PCA" in transformation["dim_reduction"]:
-                try:
-                    n_components = transformation["dim_reduction"]["PCA"]["number"]
-                    if n_components == 'all':
-                        n_components = int(len(df_train) - 1)
-                    n_components = int(n_components)
-                except ValueError:
-                    print("Number of PC's not specified in dim reduction")
-            
-                df_train_transformed, df_test_transformed = feat.do_pca(df_train, df_test, n_components, target)
-            
-            else:
-                df_train_transformed, df_test_transformed = df_train, df_test # no transformation
-            
-            df_trains_transformed.append(df_train_transformed)
-            df_tests_transformed.append(df_test_transformed)
+        if "PCA" in transformation:
+            try:
+                n_components = transformation["PCA"]["number"]
+                if n_components == 'all':
+                    n_components = int(len(df_train) - 1)
+                n_components = int(n_components)
+            except ValueError:
+                print("Number of PC's not specified")
+        
+            df_train_transformed, df_test_transformed = feat.do_pca(df_train, df_test, n_components, target)
+        
+        elif "peaks" in transformation:
+            # use scipy.find_peaks()
+            pass
+        
+        else:
+            df_train_transformed, df_test_transformed = df_train, df_test # no transformation
+        
+        df_trains_transformed.append(df_train_transformed)
+        df_tests_transformed.append(df_test_transformed)
         
         
     #    for train_index, test_index in kf.split(X):
 #      #  print("TRAIN:", train_index, "TEST:", test_index)
 #        X_train, X_test = X[train_index], X[test_index]
 #        y_train, y_test = y[train_index], y[test_index]
-
             
     # test, train, validation or test, k folds
     # save indices ?
     
-
-    # plot target distributions of train and test stacked
-    
-    # plot 3D spectra
+#    y_train = df_train[str(target)].copy().values.astype(np.float)
+#    X_train = df_train.drop(str(target), axis=1).values.astype(np.float)
+        
    
     # for regular sklearn model:
     # scale train data, transform validation set

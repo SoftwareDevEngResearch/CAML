@@ -1,9 +1,10 @@
+""" This module is meant for feature engineering and dimensionality reduction methods """
+
 import numpy as np
 import pandas as pd
 
 from sklearn.decomposition import PCA
 
-""" This module is meant for feature engineering and dimensionality reduction methods """
 
 def do_pca(df_train, df_test, n_components, target):
     """This function takes in train and test dataframes and performs PCA to reduce dims.
