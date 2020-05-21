@@ -38,5 +38,7 @@ feature_transformations:
 
 models:
   - dummy_average
+  - Lasso
   - RandomForest
   - TPOT
+  

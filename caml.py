@@ -14,6 +14,7 @@ import seaborn as sns
 import clean
 import feature_engineering as feat
 import models as mod
+import plot_ as plot_
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -21,6 +22,14 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.linear_model import Lasso
+from sklearn.linear_model import LassoCV
+from sklearn.linear_model import ElasticNet
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.model_selection import GridSearchCV
 
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -277,7 +286,60 @@ if __name__ == '__main__':
         df_trains_transformed.append(df_train_transformed)
         df_tests_transformed.append(df_test_transformed)
         
+#####################################################
+    # tune and train models
+    
+    tuned_models = []
+    test_predictions = []
+    
+    for model in models:
         
+        if model in ["Lasso"]:
+            
+            parameters = [{'alpha': np.arange(1, 300, 1)}]
+            best_model = GridSearchCV(Lasso(), parameters, cv=kf)
+            best_model.fit(X_train, y_train)
+    
+            tuned_model = best_model.best_estimator_
+            tuned_model.fit(X_train, y_train)
+            tuned_models.append(tuned_model)
+            
+            predictions = tuned_model.predict(X_test)
+            test_predictions.append(predictions)
+
+#####################################################
+    # evaluate test performance
+    
+    test_errors = []
+    
+    if validation["metric"] == "MAE":
+        
+        for i, model in models:
+            
+            errors = np.abs(y_test - test_predictions[i])
+            test_errors.append(errors)
+            
+#    elif validation["metric"] == "RMSE":
+#        pass
+    
+#####################################################
+    # make plots
+
+    for i in range(len(models)):
+        
+        plot_.abs_error_hist(test_errors[i], models[i], target, path)
+        plot_.test_parity_plot(y_test, test_predictions[i], test_errors[i], models[i], target)
+    
+#####################################################
+    # output messages to file
+    
+    with open(f"{path}/log.txt", "w") as f:
+        
+        for line in output_comments:
+            f.write(line)
+        
+#####################################################
+    
     #    for train_index, test_index in kf.split(X):
 #      #  print("TRAIN:", train_index, "TEST:", test_index)
 #        X_train, X_test = X[train_index], X[test_index]
