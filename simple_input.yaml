@@ -5,11 +5,12 @@ data:
     index_col_name: name
     plot:
       - 3D spectra
+      - 2D spectra
       - train distribution
       - test distribution
       - overall distribution
-      - split distribution
-
+      - Kfold distribution
+      
 cleaning:
     pre_split_cleaning:
       nan: interpolate
@@ -18,27 +19,37 @@ cleaning:
 
 validation:
     holdout_fraction: 0.2
-    stratified: True
     Kfold: 
       nsplits: 5
-      stratified: False
     metric: MAE
     random_seed: 42
     
 
-feature_transformations:
+transformations:
 
-    - transform:
+    transform_names:
+        - PCA_all
+        - PCA_5
+        - No_transform
+
+    feature_transformations:
+    
         - PCA:
             number: all    
-    - transform:
-        - peaks:  
-            height: True
-            area: True
+        - PCA:
+            number: 5   
+        - "None"
+            
+    #    - transform:
+    #        - peaks:  
+    #            height: True
+    #            area: True
 
 models:
   - dummy_average
   - Lasso
-  - RandomForest
-  - TPOT
+#  - ElasticNet
+#  - RandomForest
+#  - AdaBoost
+#  - TPOT
   

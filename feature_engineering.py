@@ -37,7 +37,7 @@ def do_pca(df_train, df_test, n_components, target):
     df_test_transformed = pd.merge(df_test[[str(target)]], principalDf_test, how='outer', left_index=True, right_index=True)
         
 #   variance = pca.explained_variance_ratio_
-    return df_train_transformed, df_test_transformed
+    return df_train_transformed, df_test_transformed, pca
 
 
 def do_rfe(df_train, df_test, n_components, target):
