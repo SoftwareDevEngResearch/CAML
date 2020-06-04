@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from sklearn.decomposition import PCA
+from scipy.signal import find_peaks
 
 
 def do_pca(df_train, df_test, n_components, target):
@@ -38,6 +39,14 @@ def do_pca(df_train, df_test, n_components, target):
         
 #   variance = pca.explained_variance_ratio_
     return df_train_transformed, df_test_transformed, pca
+
+def peaks(height):
+    
+    peaks, _ = find_peaks(X[0], height=height)
+    plt.plot(X[0])
+    plt.plot(peaks, X[0][peaks], "x")
+    plt.plot(np.zeros_like(X[0]), "--", color="gray")
+    plt.show()
 
 
 def do_rfe(df_train, df_test, n_components, target):

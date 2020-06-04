@@ -1,7 +1,6 @@
 ---
 data:
-#    data_path: ../F2FT/spectra_predictions/df_cn_spectra_pure_binary.csv
-    data_path: ../df_cn_spectra_pure_binary.csv
+    data_path: ../F2FT/spectra_predictions/df_cn_spectra_pure_binary.csv
     target_col_name: cn_coalesced
     index_col_name: name
     plot:
@@ -29,18 +28,18 @@ validation:
 transformations:
 
     transform_names:
-        - No_transform
         - PCA_all
         - PCA_5
+        - No_transform
         - smoothing_50
 
     feature_transformations:
     
-        - "None"
         - PCA:
             number: all    
         - PCA:
             number: 5   
+        - "None"
         - smoothing:
             n_points: 50
             
@@ -48,8 +47,8 @@ transformations:
 models:
   - dummy_average
   - Lasso
-  - ElasticNet
-  - RandomForest
-  - AdaBoost
-  - TPOT
+#  - ElasticNet
+#  - RandomForest
+#  - AdaBoost
+#  - TPOT
   

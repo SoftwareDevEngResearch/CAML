@@ -1,6 +1,5 @@
 ---
 data:
-#    data_path: ../F2FT/spectra_predictions/df_cn_spectra_pure_binary.csv
     data_path: ../df_cn_spectra_pure_binary.csv
     target_col_name: cn_coalesced
     index_col_name: name
@@ -29,22 +28,24 @@ validation:
 transformations:
 
     transform_names:
-        - No_transform
-        - PCA_all
-        - PCA_5
+        - smoothing_150
+        - smoothing_100
         - smoothing_50
+        - smoothing_25
+        - No_transform
 
     feature_transformations:
     
-        - "None"
-        - PCA:
-            number: all    
-        - PCA:
-            number: 5   
+        - smoothing:
+            n_points: 150   
+        - smoothing:
+            n_points: 100
         - smoothing:
             n_points: 50
+        - smoothing:
+            n_points: 25
+        - "None"
             
-
 models:
   - dummy_average
   - Lasso

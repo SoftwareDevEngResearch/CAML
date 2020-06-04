@@ -1,16 +1,11 @@
 ---
 data:
-#    data_path: ../F2FT/spectra_predictions/df_cn_spectra_pure_binary.csv
-    data_path: ../df_cn_spectra_pure_binary.csv
+    data_path: ../Fdf_cn_spectra_pure_binary.csv
     target_col_name: cn_coalesced
     index_col_name: name
     plot:
-      - 3D spectra
-      - 2D spectra
       - train distribution
       - test distribution
-      - overall distribution
-      - Kfold distribution
       
 cleaning:
     pre_split_cleaning:
@@ -31,8 +26,10 @@ transformations:
     transform_names:
         - No_transform
         - PCA_all
+        - PCA_30
+        - PCA_20
+        - PCA_10
         - PCA_5
-        - smoothing_50
 
     feature_transformations:
     
@@ -40,11 +37,14 @@ transformations:
         - PCA:
             number: all    
         - PCA:
-            number: 5   
-        - smoothing:
-            n_points: 50
-            
-
+            number: 30   
+        - PCA:
+            number: 20 
+        - PCA:
+            number: 10 
+        - PCA:
+            number: 5 
+        
 models:
   - dummy_average
   - Lasso

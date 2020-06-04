@@ -79,7 +79,7 @@ def spectra_3D(df, target, path):
     X_,Y_ = np.meshgrid(x_,y_)
     Z = df.drop(str(target), axis=1).values.astype(np.float)
         
-    ax.plot_surface(X_, Y_, Z, rstride=1, cstride=1000, shade=True, lw=.1) 
+    ax.plot_surface(X_, Y_, Z, rstride=1, cstride=1000, shade=True, lw=.1, alpha=0.4) 
      
 #        ax.set_zlim(0, 5)
 #        ax.set_xlim(-51, 51)
@@ -184,7 +184,7 @@ def train_test_parity_plot(y_test, y_test_pred, y_train, y_train_pred, model_nam
     plt.clf()
     
 
-def performances_by_algorithm(train_performances, test_performances, models, target, transform, path):
+def bar_performances_by_algorithm(train_performances, test_performances, models, target, transform, path):
     
     # set width of bar
     barWidth = 0.25
@@ -208,10 +208,39 @@ def performances_by_algorithm(train_performances, test_performances, models, tar
     plt.legend()
     plt.ylabel('Average absolute error')
     plt.grid(axis = 'y')    
-    plt.savefig(f"{path}/{target}_{transform}_performances.png", bbox_inches='tight', dpi=1200)
+    plt.savefig(f"{path}/{target}_{transform}_performances_barplot.png", bbox_inches='tight', dpi=1200)
+    plt.clf()
+    
+def box_performances_by_algorithm(train_errors, test_errors, models, target, transform, path):
+    
+    def set_box_color(bp, color):
+        plt.setp(bp['boxes'], color=color)
+        plt.setp(bp['whiskers'], color=color)
+        plt.setp(bp['caps'], color=color)
+        plt.setp(bp['medians'], color=color)
+    
+    plt.figure()
+    
+    train = plt.boxplot(train_errors, positions=np.array(range(len(train_errors)))*2.0-0.4, sym='', widths=0.5)
+    test = plt.boxplot(test_errors, positions=np.array(range(len(test_errors)))*2.0+0.4, sym='', widths=0.5)
+    set_box_color(train, '#D7191C') 
+    set_box_color(test, '#2C7BB6')
+    
+    # draw temporary red and blue lines and use them to create a legend
+    plt.plot([], c='#D7191C', label='Train')
+    plt.plot([], c='#2C7BB6', label='Test')
+    plt.legend()
+    plt.ylabel('Absolute error')
+    
+    plt.xticks(range(0, len(models) * 2, 2), models)
+    plt.xlim(-2, len(models)*2)
+    plt.tight_layout()
+    plt.grid(axis = 'y', alpha = 0.3)
+    plt.savefig(f"{path}/{target}_{transform}_performances_boxplot.png", bbox_inches='tight', dpi=1200)
     plt.clf()
 
-def performances_by_transform(train_performances, test_performances, model_name, transform_names, target, path):
+
+def bar_performances_by_transform(train_performances, test_performances, model_name, transform_names, target, path):
     
     transform_names = [name.replace("_"," ") for name in transform_names]
     
@@ -237,13 +266,68 @@ def performances_by_transform(train_performances, test_performances, model_name,
     plt.legend()
     plt.ylabel('Average absolute error')
     plt.grid(axis = 'y')    
-    plt.savefig(f"{path}/{target}_{model_name}_performances.png", bbox_inches='tight', dpi=1200)
+    plt.savefig(f"{path}/{target}_{model_name}_performances_barplot.png", bbox_inches='tight', dpi=1200)
     plt.clf()
 
+def box_performances_by_transform(train_errors, test_errors, model_name, transform_names, target, path):
+    
+    transform_names = [name.replace("_"," ") for name in transform_names]
 
+    def set_box_color(bp, color):
+        plt.setp(bp['boxes'], color=color)
+        plt.setp(bp['whiskers'], color=color)
+        plt.setp(bp['caps'], color=color)
+        plt.setp(bp['medians'], color=color)
+    
+    plt.figure()
+    
+    train = plt.boxplot(train_errors, positions=np.array(range(len(train_errors)))*2.0-0.4, sym='', widths=0.5)
+    test = plt.boxplot(test_errors, positions=np.array(range(len(test_errors)))*2.0+0.4, sym='', widths=0.5)
+    set_box_color(train, '#D7191C') 
+    set_box_color(test, '#2C7BB6')
+    
+    # draw temporary red and blue lines and use them to create a legend
+    plt.plot([], c='#D7191C', label='Train')
+    plt.plot([], c='#2C7BB6', label='Test')
+    plt.legend()
+    plt.ylabel('Absolute error')
+    
+    plt.xticks(range(0, len(transform_names) * 2, 2), transform_names)
+    plt.xlim(-2, len(transform_names)*2)
+    plt.tight_layout()
+    plt.grid(axis = 'y', alpha = 0.3)
+    plt.savefig(f"{path}/{target}_{model_name}_performances_boxplot.png", bbox_inches='tight', dpi=1200)
+    plt.clf()
 
-
-
-
+def PC_spectra(df, target, path, label):
+    
+    # spacing for PC's
+    if label == "train":
+        space = 10
+    else:
+        space = 5
+    
+    X = df.drop(str(target), axis=1).values.astype(np.float)
+#    y = df[str(target)].copy().values.astype(np.float)
+    
+#    color = [cm.cool(item/max(y)) for item in y]
+    
+    features = list(df.columns)
+    features.remove(target)
+    features = np.asarray(features)
+    
+    for i, example in enumerate(X):
+        
+        intensity = X[i] + space*i
+        plt.plot(features, intensity, alpha = 0.5, linewidth=1, c='k')
+        
+#    plt.ylabel("Intensity")
+    plt.yticks([])
+    plt.xticks([])
+    plt.xlabel("Principal component")
+#    plt.yticks(" ")
+    plt.savefig(f"{path}/PCA_spectra_2D_{label}.png", bbox_inches='tight', dpi=1200)
+    plt.clf()
+#    plt.show()
 
 

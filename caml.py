@@ -11,6 +11,7 @@ import shutil
 import seaborn as sns
 from tpot import TPOTRegressor
 from pickle import dump
+from scipy.signal import find_peaks
 
 # caml modules
 import clean
@@ -187,8 +188,7 @@ if __name__ == '__main__':
     
     df_trains_transformed = []
     df_tests_transformed = []
-    scaler_objects = []
-    # save scaler objects to output
+    scaler_objects = []  # save scaler objects to output
     
     for i, transformation in enumerate(feature_transformations):
      
@@ -205,7 +205,25 @@ if __name__ == '__main__':
                 print(pca_error)
         
             df_train_transformed, df_test_transformed, scaler = feat.do_pca(df_train, df_test, n_components, target)
+            
+            plot_.PC_spectra(df_train_transformed, target, data_plot_path, f"train_{transform_names[i]}")
+            plot_.PC_spectra(df_test_transformed, target, data_plot_path, f"test_{transform_names[i]}")
 
+        elif "smoothing" in transformation:
+            
+            try:
+                n_points = transformation["smoothing"]["n_points"]
+            except ValueError:
+                smoothing_error = "Number of points to use for smoothing not specified"
+                output_comments.append(smoothing_error)
+                print(smoothing_error)
+                
+            df_train_transformed = clean.smooth_spectra(df_train, target, n_points)
+            df_test_transformed = clean.smooth_spectra(df_test, target, n_points)
+            scaler = transformation # better way to do this for saving/evaluation ?
+            
+            plot_.spectra_2D(df_test_transformed, target, data_plot_path, f"test_{transform_names[i]}")
+        
         elif "peaks" in transformation:
             # use scipy.find_peaks()
             pass
@@ -285,7 +303,7 @@ if __name__ == '__main__':
                                'bootstrap': bootstrap}
                 
                 best_model = RandomizedSearchCV(estimator = RandomForestRegressor(), param_distributions = parameters, 
-                               n_iter = 10, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
+                               n_iter = 50, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
                 best_model.fit(X_train, y_train)
                 tuned_model = best_model.best_estimator_
                 
@@ -302,7 +320,7 @@ if __name__ == '__main__':
                               'loss': ["linear", 'square', 'exponential']}
                 
                 best_model = RandomizedSearchCV(estimator = AdaBoostRegressor(), param_distributions = parameters, 
-                               n_iter = 10, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
+                               n_iter = 50, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
                 best_model.fit(X_train, y_train)
                 tuned_model = best_model.best_estimator_
                 
@@ -321,10 +339,10 @@ if __name__ == '__main__':
                 
             elif model in ["TPOT", "tpot"]:
                 
-                tpot = TPOTRegressor(generations=3, population_size=50, verbosity=2, random_state=seed, max_time_mins = 3, n_jobs=2)
+                tpot = TPOTRegressor(generations=10, population_size=50, verbosity=2, random_state=seed, max_time_mins = 20, n_jobs=2)
                 tpot.fit(X_train_, y_train)
                 
-#                tpot.export(f'tpot_{model}_pipeline.py')
+                tpot.export(f'{model_path}/{model}_pipeline.py')
                 
             elif model in ["dummy_average"]:
                 
@@ -348,7 +366,7 @@ if __name__ == '__main__':
                 
                 # save the model 
                 dump(tuned_model, open(f'{model_path}/model.pkl', 'wb'))
-                print(f"saved model {model}")
+#                print(f"saved model {model}")
                 # save the scaler
                 try: 
                     dump(scaler_objects[t], open(f'{model_path}/scaler.pkl', 'wb'))
@@ -368,7 +386,7 @@ if __name__ == '__main__':
 
 
 #####################################################
-    # calculate test performance
+    # calculate test performance, absolute error
     
     all_test_errors = []
     all_train_errors = []
@@ -392,8 +410,8 @@ if __name__ == '__main__':
             train_errors_m = np.abs(y_train - all_train_predictions[t][i])
             train_errors.append(train_errors_m)
             
-            test_performances.append(np.mean(test_errors))
-            train_performances.append(np.mean(train_errors))
+            test_performances.append(np.mean(test_errors_m))
+            train_performances.append(np.mean(train_errors_m))
             
         all_test_errors.append(test_errors)
         all_train_errors.append(train_errors)
@@ -401,15 +419,16 @@ if __name__ == '__main__':
         all_test_performances.append(test_performances)
         all_train_performances.append(train_performances)
             
-#    elif validation["metric"] == "RMSE":
-#        pass
     
 #####################################################
     # make performance plots
     
     for t, transform in enumerate(feature_transformations):
         
-        plot_.performances_by_algorithm(all_train_performances[t], all_test_performances[t], models, 
+        plot_.bar_performances_by_algorithm(all_train_performances[t], all_test_performances[t], models, 
+                                 target, transform_names[t], path)
+        
+        plot_.box_performances_by_algorithm(all_train_errors[t], all_test_errors[t], models, 
                                  target, transform_names[t], path)
 
         for i in range(len(models)):
@@ -425,12 +444,17 @@ if __name__ == '__main__':
                                          y_train, all_train_predictions[t][i], 
                                          models[i], transform_names[t], target, 
                                          model_path)
-            
+
     for i in range(len(models)):
         
         train_performances_ = [x[i] for x in all_train_performances]
         test_performances_ = [x[i] for x in all_test_performances]
-        plot_.performances_by_transform(train_performances_, test_performances_,
+        plot_.bar_performances_by_transform(train_performances_, test_performances_,
+                                        models[i], transform_names, target, path)
+
+        train_errors_ = [x[i] for x in all_train_errors]
+        test_errors_ = [x[i] for x in all_test_errors]
+        plot_.box_performances_by_transform(train_errors_, test_errors_,
                                         models[i], transform_names, target, path)
             
     # plot performance of all models for each feature transformation method
