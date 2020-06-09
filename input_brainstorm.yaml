@@ -1,0 +1,90 @@
+---
+data:
+    data_path: ../F2FT/spectra_predictions/df_cn_spectra_pure_binary.csv
+    target_col_name: cn_coalesced
+    index_col_name: name
+#    target_units: '[-]'
+#    feature_units: '[cm^-1]'
+#    feature_name: spectra 
+#    target_name: cetane number 
+#    ID_dict: "" # if alternate ID names (smiles vs chem names here)
+#    spectra:
+#      spectra_path: ../spectra/
+#      target_path: ../cn_coalesced.csv
+    plot:
+      - 3D spectra
+      - target distribution
+      - split distribution
+    spectra: True
+      - path_to_spectra_data: spectra/
+      - interpolate: True
+        - path_to_interpolate_wavenumber:
+    wavenumber_range:
+        - min:
+        - max:
+        - increment:
+
+    
+cleaning:
+
+    pre_split_cleaning:
+      - nan: interpolate # or remove feature or remove example with thresholds
+    post_split_cleaning:
+      - normalize: overall min max 
+
+    outlier_removal: False
+        - threshold: #fraction of standard deviation to keep
+    PCA: False
+    nan: remove
+    dim_reduction: False
+    normalize: overall min max #normalize by min and max of all feature values, not by indiv features
+#    nan: interpolate # interpolate for low res spectra #other opts: remove feature, remove example, remove if .. threshold
+#    dim_reduction:
+#        PCA:
+#          number: all
+    
+validation:
+    holdout_fraction: 20
+  #  holdout_examples: # list of examples to include in test set by ID
+  #    - limonene
+#    validation_fraction: 15 # use if not using k-fold
+    Kfold: 
+      K_: 5
+      stratified: True
+    metric: MAE
+    random_seed: 42
+#     option to reload stored indices for split
+    
+
+input_transformations:
+
+    - dim_reduction:
+        PCA:
+          number: all # number of PC's or all which is N - 1, N is #data points
+  
+    - dim_reduction:
+        - remove_correlated: Spearman # or pearson
+        
+    - dim_reduction:
+        RFE:
+          threshold: 90
+        
+    - dim_reduction:
+        - PCA:
+            number: all 
+        - remove_correlated: 
+            Spearman: 0.8   
+
+models:
+    sklearn:
+        Tree_based:
+            - Random_Forest: False
+            - ExtraTrees: False
+            - DecisionTree: True
+    TPOT: True
+        - light: False
+        - random_seed: 42
+        - max_time: 15
+        
+    dummy_average: True
+    

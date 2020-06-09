@@ -1,0 +1,56 @@
+---
+data:
+    data_path: ../df_cn_spectra_pure_binary.csv
+    target_col_name: cn_coalesced
+    index_col_name: name
+    plot:
+      - 3D spectra
+      - 2D spectra
+      - train distribution
+      - test distribution
+      - overall distribution
+      - Kfold distribution
+      
+cleaning:
+    pre_split_cleaning:
+      nan: interpolate
+    post_split_cleaning:
+      normalize: overall min max 
+
+validation:
+    holdout_fraction: 0.2
+    Kfold: 
+      nsplits: 5
+    metric: MAE
+    random_seed: 42
+    
+
+transformations:
+
+    transform_names:
+        - smoothing_150
+        - smoothing_100
+        - smoothing_50
+        - smoothing_25
+        - No_transform
+
+    feature_transformations:
+    
+        - smoothing:
+            n_points: 150   
+        - smoothing:
+            n_points: 100
+        - smoothing:
+            n_points: 50
+        - smoothing:
+            n_points: 25
+        - "None"
+            
+models:
+  - dummy_average
+  - Lasso
+  - ElasticNet
+  - RandomForest
+  - AdaBoost
+  - TPOT
+  

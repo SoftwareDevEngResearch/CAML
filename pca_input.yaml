@@ -1,0 +1,55 @@
+---
+data:
+    data_path: ../Fdf_cn_spectra_pure_binary.csv
+    target_col_name: cn_coalesced
+    index_col_name: name
+    plot:
+      - train distribution
+      - test distribution
+      
+cleaning:
+    pre_split_cleaning:
+      nan: interpolate
+    post_split_cleaning:
+      normalize: overall min max 
+
+validation:
+    holdout_fraction: 0.2
+    Kfold: 
+      nsplits: 5
+    metric: MAE
+    random_seed: 42
+    
+
+transformations:
+
+    transform_names:
+        - No_transform
+        - PCA_all
+        - PCA_30
+        - PCA_20
+        - PCA_10
+        - PCA_5
+
+    feature_transformations:
+    
+        - "None"
+        - PCA:
+            number: all    
+        - PCA:
+            number: 30   
+        - PCA:
+            number: 20 
+        - PCA:
+            number: 10 
+        - PCA:
+            number: 5 
+        
+models:
+  - dummy_average
+  - Lasso
+  - ElasticNet
+  - RandomForest
+  - AdaBoost
+  - TPOT
+  
