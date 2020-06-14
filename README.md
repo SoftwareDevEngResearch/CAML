@@ -15,12 +15,6 @@ $ conda install -c anaconda pyyaml
 $ pip install tpot
 ```
 
-## Running Optimus
-Once installed, from the home directory, the code can be run with:
-```console
-$ caml.py --help
-```
-
 ## Example
 First unzip the csv file and ensure the path in the simple_input.yaml file 
 matches where you want to store it.
