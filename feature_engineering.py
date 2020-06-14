@@ -9,7 +9,18 @@ from scipy.signal import find_peaks
 
 def do_pca(df_train, df_test, n_components, target):
     """This function takes in train and test dataframes and performs PCA to reduce dims.
-    It fits on the train and transforms the test df based on the train."""
+    It fits on the train and transforms the test df based on the train.
+    ----------
+        df_train : pandas dataframe
+            dataframe of train set
+        df_test : pandas dataframe
+            dataframe of test set
+        n_components : integer
+            number of principal components to include in PCA transform.
+            Max is one less than the total number of data points
+        target : string
+            name of target column in dataframes
+    """
     
     features = list(df_train.columns)
     features.remove(target)
@@ -40,19 +51,57 @@ def do_pca(df_train, df_test, n_components, target):
 #   variance = pca.explained_variance_ratio_
     return df_train_transformed, df_test_transformed, pca
 
-def peaks(height):
+def smooth_spectra(df, target, n):
+    """ This function takes in a spectra dataframe and smooths noise by replacing each 
+    intensity measurement with an average of the 'n' points to the left and right of it.
+    Returns a dataframe of same dimensions. End points are averaged with whatever is around 
+    if it exists.    
+    ----------
+        df : pandas dataframe
+            dataframe of entire dataset
+        target : string
+            name of target column in dataframes
+        n : integer
+            number of points to average to the left and right of each point    
+    """
     
-    peaks, _ = find_peaks(X[0], height=height)
-    plt.plot(X[0])
-    plt.plot(peaks, X[0][peaks], "x")
-    plt.plot(np.zeros_like(X[0]), "--", color="gray")
-    plt.show()
-
+    X = df.drop(str(target), axis=1).values.astype(np.float)
+    
+    features = list(df.columns)
+    features.remove(target)
+    index_list= list(df.index.values)
+    
+    smoothed_spectra = np.array(X)
+    
+    for s, spectra in enumerate(X):
+    
+        for i in range(len(spectra)):
+            
+            if i < n:
+                intensity = np.mean(spectra[0:i+n])
+            else:
+                try:
+                    intensity = np.mean(spectra[i-n : i+n])
+                except: 
+                    intensity = np.mean(spectra[i-n : -1])
+                
+            smoothed_spectra[s][i] = intensity
+            
+    df_x_smoothed = pd.DataFrame(data = smoothed_spectra, 
+                                 columns = features, index = index_list)
+    
+    df_smoothed= pd.merge(df[[str(target)]], df_x_smoothed, how='outer', left_index=True, right_index=True)
+   
+    return df_smoothed
 
 def do_rfe(df_train, df_test, n_components, target):
     
     """This function takes in train and test dataframes and performs 
     Recursive Feature Elimination to reduce dims. It removes features
-    based on the train and transforms the test df based on the train."""
+    based on the train and transforms the test df based on the train.
+    
+    [in construction]
+    
+    """
     
     return df_train_transformed, df_test_transformed

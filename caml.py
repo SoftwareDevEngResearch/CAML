@@ -27,6 +27,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.impute import SimpleImputer
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.kernel_ridge import KernelRidge
@@ -72,13 +73,13 @@ if __name__ == '__main__':
         os.mkdir(path)
     except OSError:
         print("Creation of the directory %s failed" % path)
-    
-    # put copy of input request file into output folder    
-    shutil.copy(input_file, path) 
      
     # load input file with yaml
     with open(str(input_file), 'r') as file:
         input_ = yaml.load(file, Loader=yaml.FullLoader)
+        
+    # put copy of input request file into output folder    
+    shutil.copy(input_file, path) 
     
     # dictionaries for each phase of ML process
     data = input_["data"]
@@ -87,7 +88,16 @@ if __name__ == '__main__':
     feature_transformations = input_["transformations"]["feature_transformations"]
     transform_names = input_["transformations"]["transform_names"]
     models = input_["models"]
+    parameters_file = input_["validation"]["parameters_file"]
     
+    # load input file with yaml
+    with open(str(parameters_file), 'r') as file:
+        parameters = yaml.load(file, Loader=yaml.FullLoader)
+        
+    # put copy of parameter file into output folder    
+    shutil.copy(parameters_file, path) 
+
+        
     target = data["target_col_name"]
     seed = validation["random_seed"]
     
@@ -96,10 +106,28 @@ if __name__ == '__main__':
     # dataframe with ID, target, features 
     df = pd.read_csv(data["data_path"], header = 0, dtype=object, index_col=data["index_col_name"])
     
-##############################################
-    # pre-split cleaning
     
-    # handling nans, removing outliers before splitting into train, test, val
+##############################################
+    # pre-split cleaning - handling nans, removing outliers before splitting into train, test, val
+    
+    if df.isnull().values.any() == True: # if there is a missing value- feature or target
+        
+        if cleaning["pre_split_cleaning"]["nan"] == "remove example":
+            df = df.dropna(how='any')
+            
+        elif cleaning["pre_split_cleaning"]["nan"] == "remove feature":
+            df = df.dropna(axis='columns')
+        
+        else:
+            # use imputer function from sklearn
+            strategy = cleaning["pre_split_cleaning"]["nan"]
+            try:
+                imp = SimpleImputer(missing_values=np.nan, strategy=strategy)
+                df = imp.fit_transform(df)
+            except:
+                imputer_error = f"pre-split cleaning method {strategy} not valid"
+                output_comments.append(imputer_error)
+                print(imputer_error)
     
 #################################################
     # split according to validation request, use random seed
@@ -133,7 +161,7 @@ if __name__ == '__main__':
             
         
 #########################################
-    # plot requested distributions
+    # data plots
     
     data_plot_path = f"{path}/data_plots"
     os.mkdir(data_plot_path)
@@ -168,8 +196,10 @@ if __name__ == '__main__':
         
         plot_.spectra_2D(df_train, target, data_plot_path, "train")
         plot_.spectra_2D(df_test, target, data_plot_path, "test")
-
-    # plot heatmap of correlated features- spearman and pearson correlation coefficients
+        
+    if "all spectra" in data["plot"]:
+        
+        plot_.all_spectra(df, target, data_plot_path)
 
 ##############################################
     # post-split cleaning
@@ -218,8 +248,8 @@ if __name__ == '__main__':
                 output_comments.append(smoothing_error)
                 print(smoothing_error)
                 
-            df_train_transformed = clean.smooth_spectra(df_train, target, n_points)
-            df_test_transformed = clean.smooth_spectra(df_test, target, n_points)
+            df_train_transformed = feat.smooth_spectra(df_train, target, n_points)
+            df_test_transformed = feat.smooth_spectra(df_test, target, n_points)
             scaler = transformation # better way to do this for saving/evaluation ?
             
             plot_.spectra_2D(df_test_transformed, target, data_plot_path, f"test_{transform_names[i]}")
@@ -262,73 +292,43 @@ if __name__ == '__main__':
             
             if model in ["Lasso"]:
                 
-                parameters = [{'alpha': np.arange(0.01, 30.01, 1)}] #give option to input this in file
-                best_model = GridSearchCV(Lasso(), parameters, cv=kf) # test that indices match
+                parameters_ = [parameters["Lasso"]]
+                best_model = GridSearchCV(Lasso(), parameters_, cv=kf) # test that indices match
                 best_model.fit(X_train_, y_train)    
                 tuned_model = best_model.best_estimator_
                 
             elif model in ["ElasticNet"]:
                 
-                parameters = [{'alpha': np.arange(10, 200, 10)}] #give option to input this in file
-                best_model = GridSearchCV(ElasticNet(), parameters, cv=kf) # test that indices match
+                parameters_ = [parameters["ElasticNet"]]
+                best_model = GridSearchCV(ElasticNet(), parameters_, cv=kf) # test that indices match
                 best_model.fit(X_train_, y_train)    
                 tuned_model = best_model.best_estimator_
                 
             elif model in ["RandomForest"]:
             
-                # Number of trees in random forest
-                n_estimators = [int(x) for x in np.linspace(start = 30, stop = 200, num = 10)]
+                parameters_ = parameters["RandomForest"]["parameters"]
+                n_iter_rf = parameters["RandomForest"]["n_iter"]
                 
-                # Number of features to consider at every split
-                max_features = ['auto', 'sqrt']
-                
-                # Maximum number of levels in tree
-                max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
-                max_depth.append(None)
-                
-                # Minimum number of samples required to split a node
-                min_samples_split = [2, 5, 10]
-                
-                # Minimum number of samples required at each leaf node
-                min_samples_leaf = [1, 2, 4]
-                
-                # Method of selecting samples for training each tree
-                bootstrap = [True, False]# Create the random grid
-                
-                parameters = {'n_estimators': n_estimators,
-                               'max_features': max_features,
-                               'max_depth': max_depth,
-                               'min_samples_split': min_samples_split,
-                               'min_samples_leaf': min_samples_leaf,
-                               'bootstrap': bootstrap}
-                
-                best_model = RandomizedSearchCV(estimator = RandomForestRegressor(), param_distributions = parameters, 
-                               n_iter = 50, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
+                best_model = RandomizedSearchCV(estimator = RandomForestRegressor(), param_distributions = parameters_, 
+                               n_iter = n_iter_rf, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
                 best_model.fit(X_train, y_train)
                 tuned_model = best_model.best_estimator_
                 
             elif model in ["AdaBoost"]:
                 
-                # Number of decision trees as weak learner
-                n_estimators = [int(x) for x in np.linspace(start = 20, stop = 100, num = 5)]
+                parameters_ = parameters["AdaBoost"]["parameters"]
+                n_iter_ab = parameters["AdaBoost"]["n_iter"]
                 
-                #learning rate
-                learning_rate = [0.01, 0.1, 10]
-                
-                parameters = {'n_estimators': n_estimators,
-                               'learning_rate': learning_rate,
-                              'loss': ["linear", 'square', 'exponential']}
-                
-                best_model = RandomizedSearchCV(estimator = AdaBoostRegressor(), param_distributions = parameters, 
-                               n_iter = 50, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
+                best_model = RandomizedSearchCV(estimator = AdaBoostRegressor(), param_distributions = parameters_, 
+                               n_iter = n_iter_ab, cv = kf, verbose=2, random_state=seed, n_jobs = -1, refit=True)
                 best_model.fit(X_train, y_train)
                 tuned_model = best_model.best_estimator_
                 
             elif model in ["PLS"]:
                 
-                parameters = [{'n_components': np.arange(2, 10)}]
+                parameters_ = [parameters["PLS"]]
                 
-                best_model = GridSearchCV(PLSRegression(), parameters, cv=kf) # test that indices match
+                best_model = GridSearchCV(PLSRegression(), parameters_, cv=kf) # test that indices match
                 best_model.fit(X_train_, y_train)    
                 tuned_model = best_model.best_estimator_
                 
@@ -338,10 +338,15 @@ if __name__ == '__main__':
                 tuned_model.fit(X_train_, y_train) 
                 
             elif model in ["TPOT", "tpot"]:
+                                
+                tpot = TPOTRegressor(generations=parameters["TPOT"]["generations"], 
+                                     population_size=parameters["TPOT"]["population_size"], 
+                                     verbosity=parameters["TPOT"]["verbosity"], 
+                                     random_state=seed, 
+                                     max_time_mins = parameters["TPOT"]["max_time_mins"], 
+                                     n_jobs=parameters["TPOT"]["n_jobs"])
                 
-                tpot = TPOTRegressor(generations=10, population_size=50, verbosity=2, random_state=seed, max_time_mins = 20, n_jobs=2)
-                tpot.fit(X_train_, y_train)
-                
+                tpot.fit(X_train_, y_train)                
                 tpot.export(f'{model_path}/{model}_pipeline.py')
                 
             elif model in ["dummy_average"]:
@@ -366,12 +371,12 @@ if __name__ == '__main__':
                 
                 # save the model 
                 dump(tuned_model, open(f'{model_path}/model.pkl', 'wb'))
-#                print(f"saved model {model}")
+
                 # save the scaler
                 try: 
                     dump(scaler_objects[t], open(f'{model_path}/scaler.pkl', 'wb'))
                 except:
-                    print("No scaler")
+                    print("No scaler") # find way to save homemade scalers
                             
             except:
                 model_error = "Could not tune and train {model} model"
@@ -379,7 +384,6 @@ if __name__ == '__main__':
                 raise ValueError(model_error)
                 pass # add placeholder for undefined model in list ?
 
-                
         all_tuned_models.append(tuned_models)
         all_test_predictions.append(test_predictions)
         all_train_predictions.append(train_predictions)
@@ -425,8 +429,8 @@ if __name__ == '__main__':
     
     for t, transform in enumerate(feature_transformations):
         
-        plot_.bar_performances_by_algorithm(all_train_performances[t], all_test_performances[t], models, 
-                                 target, transform_names[t], path)
+    #    plot_.bar_performances_by_algorithm(all_train_performances[t], all_test_performances[t], models, 
+     #                            target, transform_names[t], path)
         
         plot_.box_performances_by_algorithm(all_train_errors[t], all_test_errors[t], models, 
                                  target, transform_names[t], path)
@@ -444,26 +448,22 @@ if __name__ == '__main__':
                                          y_train, all_train_predictions[t][i], 
                                          models[i], transform_names[t], target, 
                                          model_path)
-
+            
     for i in range(len(models)):
         
         train_performances_ = [x[i] for x in all_train_performances]
         test_performances_ = [x[i] for x in all_test_performances]
-        plot_.bar_performances_by_transform(train_performances_, test_performances_,
-                                        models[i], transform_names, target, path)
+    #    plot_.bar_performances_by_transform(train_performances_, test_performances_,
+    #                                    models[i], transform_names, target, path)
 
         train_errors_ = [x[i] for x in all_train_errors]
         test_errors_ = [x[i] for x in all_test_errors]
         plot_.box_performances_by_transform(train_errors_, test_errors_,
                                         models[i], transform_names, target, path)
-            
-    # plot performance of all models for each feature transformation method
-       
-    # plot performance of all feature transformation for each model/method
-        
+                    
 #####################################################
         
-    # output messages to file
+    # output error messages to file
     
     with open(f"{path}/log.txt", "w") as f:
         
@@ -471,72 +471,3 @@ if __name__ == '__main__':
             f.write(line)
         
 #####################################################
-    
-    #    for train_index, test_index in kf.split(X):
-#      #  print("TRAIN:", train_index, "TEST:", test_index)
-#        X_train, X_test = X[train_index], X[test_index]
-#        y_train, y_test = y[train_index], y[test_index]
-            
-    # test, train, validation or test, k folds
-    # save indices ?
-    
-#    y_train = df_train[str(target)].copy().values.astype(np.float)
-#    X_train = df_train.drop(str(target), axis=1).values.astype(np.float)
-        
-   
-    # for regular sklearn model:
-    # scale train data, transform validation set
-    # if k-fold, scale k-1 train folds within each train fold
-    
-    # split into train, test, try stratified
-#    if validation["stratified"] == True:
-#        try:
-#            stratified = True   
-#            df_train, df_test = train_test_split(df, 
-#                                                    test_size=validation["holdout_fraction"], 
-#                                                    random_state=seed,
-#                                                    stratify=df[str(target)].copy())
-#        except:
-#            stratified_error = "Could not stratify train/test split because least populated class has too few members. Proceeding without stratifying." 
-#            output_comments.append(stratified_error)
-#            print(stratified_error)
-#            
-#            df_train, df_test = train_test_split(df, 
-#                                                    test_size=validation["holdout_fraction"], 
-#                                                    random_state=seed
-#                                                    )
-#    else:
-    
-#            if validation["Kfold"]["stratified"] == True: ### Fix for regression! use np.digitize for binning
-#            try:
-#                kf = StratifiedKFold(n_splits = K, shuffle=True, random_state=seed)
-#            except:
-#                kfold_error = "Could not stratify for K-fold splitting because least populated class has too few members. Proceeding without stratifying K-folds." 
-#                output_comments.append(kfold_error)
-#                print(kfold_error)
-#                
-#                kf = KFold(n_splits = K, shuffle=True, random_state=seed)
-#                
-#        elif validation["Kfold"]["stratified"] == False:
-    
-
-#=============================================================
-    # read input file
-    # make folder for this case study with unique #
-    
-    # overall data cleaning
-    # data visualization of target data
-
-    # possibly divide nodes for each case?
-    # for each request/case:
-    # - cleaning
-    # - feature engineering
-    # - data visualize
-    # - split into train, (optional- validate), and test
-    # - train model or TPOT search
-    # - save each trained model as pkl file with associated metadata about input transformations
-    # - plot train and test results
-    # - output results summary file
-
-    # Case study plots
-    # case study output file
