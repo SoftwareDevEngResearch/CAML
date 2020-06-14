@@ -9,15 +9,15 @@ data:
       
 cleaning:
     pre_split_cleaning:
-      nan: interpolate
+      nan: mean
     post_split_cleaning:
       normalize: overall min max 
 
 validation:
     holdout_fraction: 0.2
+    parameters_file: narrow_search.yaml
     Kfold: 
       nsplits: 5
-    metric: MAE
     random_seed: 42
     
 

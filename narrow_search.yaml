@@ -1,0 +1,32 @@
+---
+Lasso: 
+    alpha: [0.01, 1, 10, 20, 30] #np.arange(0.01, 30.01, 1)
+
+ElasticNet: 
+    alpha: [0.01, 1, 10, 20, 30] #np.arange(10, 200, 10)
+
+RandomForest:
+    parameters: 
+        n_estimators: [25, 50, 75, 100] #[int(x) for x in np.linspace(start = 30, stop = 200, num = 10)] # Number of trees in random forest
+        max_features: ['auto', 'sqrt'] # Number of features to consider at every split
+        max_depth: [0, 20, 40, 60, 80, 100] #[int(x) for x in np.linspace(10, 110, num = 11)] # Maximum number of levels in tree
+        min_samples_split: [2, 3, 4, 5, 6, 7, 8, 9, 10] # Minimum number of samples required to split a node
+        min_samples_leaf: [1, 2, 3, 4]  # Minimum number of samples required at each leaf node
+        bootstrap: [True, False] # Method of selecting samples for training each tree
+    n_iter: 5
+    
+AdaBoost: 
+    parameters:
+        n_estimators: [25, 50, 75, 100] #[int(x) for x in np.linspace(start = 20, stop = 100, num = 5)] # Number of decision trees as weak learner
+        learning_rate: [0.01, 0.1, 10]
+        loss: ["linear", 'square', 'exponential'] 
+    n_iter: 5
+    
+TPOT: 
+    generations: 3
+    population_size: 50
+    verbosity: 2
+    max_time_mins: 20
+    n_jobs: 2
+                
+      
